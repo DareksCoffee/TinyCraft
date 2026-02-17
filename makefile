@@ -18,8 +18,9 @@ all: $(EXECUTABLE)
 
 # Create binary
 $(EXECUTABLE): $(OBJECTS)
-	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(BIN_DIR)/.tinycraft
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@cp -r rsc/* $(BIN_DIR)/.tinycraft/
 	@echo "Build complete: $@"
 
 # Compile object files

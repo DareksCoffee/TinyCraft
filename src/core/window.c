@@ -28,3 +28,11 @@ void win_update(Window* win)
   win->should_close = glfwWindowShouldClose(win->window);
 }
 
+void win_close(Window* win)
+{
+  if(win && win->window)
+  {
+    glfwDestroyWindow(win->window);
+    glfwTerminate();
+  }
+}
