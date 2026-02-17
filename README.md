@@ -1,5 +1,6 @@
 # TinyCraft
 A simple Minecraft clone written in C. 
+
 --- 
 ## Installation 
 1. Fork the repo 
@@ -15,6 +16,6 @@ make -j$(nproc)
 ## Dependencies 
 GLFW 3.x
 Glew 2.x 
-
+CGlm
 ## License
 See the LICENSE file for more info.

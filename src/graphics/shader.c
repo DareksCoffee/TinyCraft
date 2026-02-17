@@ -3,11 +3,6 @@
 #include <utils/path_util.h>
 #include <limits.h>
 
-/**
- * Read entire file into memory
- * @param path File path to read
- * @return Allocated string with file contents or NULL on failure
- */
 static char* shader_read_file(const char* path)
 {
   FILE* file = fopen(path, "rb");
@@ -43,12 +38,6 @@ static char* shader_read_file(const char* path)
   return buffer;
 }
 
-/**
- * Compile a single shader
- * @param shader_type GL_VERTEX_SHADER or GL_FRAGMENT_SHADER
- * @param source Shader source code
- * @return Compiled shader handle or 0 on failure
- */
 static GLuint shader_compile(GLenum shader_type, const char* source)
 {
   GLuint shader = glCreateShader(shader_type);
@@ -165,4 +154,10 @@ void shader_delete(Shader* shader)
     glDeleteProgram(shader->program);
     shader->program = 0;
   }
+}
+
+void shader_set_mat4(Shader* shader, const char* name, mat4 mat)
+{
+  GLint loc = glGetUniformLocation(shader->program, name);
+  glUniformMatrix4fv(loc, 1, GL_FALSE, (const float*)mat);
 }

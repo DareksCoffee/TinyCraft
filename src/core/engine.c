@@ -2,11 +2,14 @@
 #include <graphics/shader.h>
 #include <graphics/mesh.h>
 #include <graphics/vertex.h>
-
+#include <graphics/voxel.h>
+#include <world/world.h>
+#include <cglm/cglm.h>
 
 static Window window;
 static Shader basic_shader;
-static Mesh triangle_mesh;
+static double last_time;
+static float total_time;
 
 int engine_init_components()
 {
@@ -53,19 +56,15 @@ int engine_init()
     return ENGINE_FAIL;
   }
 
-  Vertex triangle_vertices[] = {
-    // Position              // Color
-    { {  0.0f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f } },  // Top - Red
-    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f } },  // Bottom-Left - Green
-    { {  0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f } }   // Bottom-Right - Blue
-  };
-
-  if(mesh_init(&triangle_mesh, triangle_vertices, 3) != MESH_OK)
+  if(world_init() != MESH_OK)
   {
-    printf("Failed to initialize mesh\n");
+    printf("Failed to initialize world\n");
     return ENGINE_FAIL;
   }
 
+  glEnable(GL_DEPTH_TEST);
+  last_time = glfwGetTime();
+  total_time = 0.0f;
   engine_run();
   return ENGINE_OK;
 }
@@ -73,15 +72,33 @@ int engine_init()
 
 void engine_run()
 {
-  int frame = 0;
+  mat4 projection, view, model;
+  glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
+  glm_lookat((vec3){2.0f, 2.0f, 2.0f}, (vec3){0.0f, 0.0f, 0.0f}, (vec3){0.0f, 1.0f, 0.0f}, view);
+
   while(!window.should_close)
   {
-    frame++;
+    double current_time = glfwGetTime();
+    float delta_time = (float)(current_time - last_time);
+    last_time = current_time;
+    total_time += delta_time;
+
+    world_update(delta_time);
+
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    glm_mat4_identity(model);
+    glm_rotate(model, glm_rad(total_time * 30.0f), (vec3){1.0f, 0.0f, 0.0f});
+    glm_rotate(model, glm_rad(total_time * 45.0f), (vec3){0.0f, 1.0f, 0.0f});
+    glm_rotate(model, glm_rad(total_time * 60.0f), (vec3){0.0f, 0.0f, 1.0f});
+
     shader_use(&basic_shader);
-    mesh_render(&triangle_mesh);
+    shader_set_mat4(&basic_shader, "model", model);
+    shader_set_mat4(&basic_shader, "view", view);
+    shader_set_mat4(&basic_shader, "projection", projection);
+
+    world_render(NULL);
 
     win_update(&window);
   }
