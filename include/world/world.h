@@ -2,10 +2,11 @@
 #define WORLD_H
 
 #include <graphics/voxel.h>
+#include <graphics/shader.h>
 #include <cglm/cglm.h>
 
 int world_init(void);
 void world_update(float delta_time);
-void world_render(Voxel* v);
+void world_render(Shader* shader, mat4 view, mat4 projection);
 
 #endif

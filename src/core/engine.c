@@ -126,8 +126,9 @@ void engine_run()
     shader_set_mat4(&basic_shader, "model", model);
     shader_set_mat4(&basic_shader, "view", view);
     shader_set_mat4(&basic_shader, "projection", projection);
+    shader_set_int(&basic_shader, "texture_sampler", 0);
 
-    world_render(NULL);
+    world_render(&basic_shader, view, projection);
 
     win_update(&window);
   }

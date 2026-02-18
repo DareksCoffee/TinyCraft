@@ -18,5 +18,6 @@ int shader_load(Shader* shader, const char* vertex_path, const char* fragment_pa
 void shader_use(Shader* shader);
 void shader_delete(Shader* shader);
 void shader_set_mat4(Shader* shader, const char* name, mat4 mat);
+void shader_set_int(Shader* shader, const char* name, int value);
 
 #endif
