@@ -48,7 +48,9 @@ int engine_init_components()
   glfwSetInputMode(window.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   if(glfwRawMouseMotionSupported())
     glfwSetInputMode(window.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-  
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
+  glFrontFace(GL_CCW);
   return ENGINE_OK;
 }
 
@@ -97,7 +99,6 @@ void engine_run()
   mat4 projection, view, model;
   glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
   
-  /* Set mouse callback */
   glfwSetWindowUserPointer(window.window, &camera);
   glfwSetCursorPosCallback(window.window, mouse_callback);
 
@@ -108,7 +109,6 @@ void engine_run()
     last_time = current_time;
     total_time += delta_time;
 
-    /* Update camera with WASD and mouse */
     camera_update(&camera, window.window, delta_time);
     camera_get_view_matrix(&camera, view);
 
@@ -118,9 +118,6 @@ void engine_run()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glm_mat4_identity(model);
-    glm_rotate(model, glm_rad(total_time * 30.0f), (vec3){1.0f, 0.0f, 0.0f});
-    glm_rotate(model, glm_rad(total_time * 45.0f), (vec3){0.0f, 1.0f, 0.0f});
-    glm_rotate(model, glm_rad(total_time * 60.0f), (vec3){0.0f, 0.0f, 1.0f});
 
     shader_use(&basic_shader);
     shader_set_mat4(&basic_shader, "model", model);
