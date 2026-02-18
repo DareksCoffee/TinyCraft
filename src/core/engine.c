@@ -1,8 +1,10 @@
 #include <core/engine.h>
+#include <core/input.h>
 #include <graphics/shader.h>
 #include <graphics/mesh.h>
 #include <graphics/vertex.h>
 #include <graphics/voxel.h>
+#include <graphics/camera.h>
 #include <world/world.h>
 #include <cglm/cglm.h>
 
@@ -10,6 +12,7 @@ static Window window;
 static Shader basic_shader;
 static double last_time;
 static float total_time;
+static Camera camera;
 
 int engine_init_components()
 {
@@ -40,6 +43,12 @@ int engine_init_components()
     return ENGINE_FAIL;
   }
   glfwSwapInterval(1);
+  
+  /* Set up mouse input */
+  glfwSetInputMode(window.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  if(glfwRawMouseMotionSupported())
+    glfwSetInputMode(window.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+  
   return ENGINE_OK;
 }
 
@@ -62,6 +71,12 @@ int engine_init()
     return ENGINE_FAIL;
   }
 
+  if(camera_init(&camera, 0.0f, 0.0f, 3.0f) != CAMERA_OK)
+  {
+    printf("Failed to initialize camera\n");
+    return ENGINE_FAIL;
+  }
+
   glEnable(GL_DEPTH_TEST);
   last_time = glfwGetTime();
   total_time = 0.0f;
@@ -70,11 +85,21 @@ int engine_init()
 }
 
 
+static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+  Camera* cam = (Camera*)glfwGetWindowUserPointer(window);
+  if(cam)
+    camera_mouse_callback(cam, xpos, ypos);
+}
+
 void engine_run()
 {
   mat4 projection, view, model;
   glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
-  glm_lookat((vec3){2.0f, 2.0f, 2.0f}, (vec3){0.0f, 0.0f, 0.0f}, (vec3){0.0f, 1.0f, 0.0f}, view);
+  
+  /* Set mouse callback */
+  glfwSetWindowUserPointer(window.window, &camera);
+  glfwSetCursorPosCallback(window.window, mouse_callback);
 
   while(!window.should_close)
   {
@@ -82,6 +107,10 @@ void engine_run()
     float delta_time = (float)(current_time - last_time);
     last_time = current_time;
     total_time += delta_time;
+
+    /* Update camera with WASD and mouse */
+    camera_update(&camera, window.window, delta_time);
+    camera_get_view_matrix(&camera, view);
 
     world_update(delta_time);
 
