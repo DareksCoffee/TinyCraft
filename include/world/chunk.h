@@ -20,11 +20,13 @@ typedef struct {
   int vertex_capacity;
   int is_dirty;
   int is_loaded;
+  int* blocks;
 } Chunk;
 
 Chunk* chunk_create(int chunk_x, int chunk_z);
 void chunk_load(Chunk* chunk);
 void chunk_unload(Chunk* chunk);
+int chunk_get_block(Chunk* chunk, int local_x, int local_y, int local_z);
 void chunk_rebuild_mesh(Chunk* chunk);
 void chunk_render(Chunk* chunk);
 void chunk_destroy(Chunk* chunk);

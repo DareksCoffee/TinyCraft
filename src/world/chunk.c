@@ -26,7 +26,7 @@ static void init_noise(void)
 
 void chunk_load(Chunk* chunk)
 {
-  if(!chunk)
+  if(!chunk || !chunk->blocks)
     return;
   
   if(!noise_initialized)
@@ -38,7 +38,7 @@ void chunk_load(Chunk* chunk)
       int world_z = chunk->z * CHUNK_XZ + z;
       
       float noise_val = fnlGetNoise2D(&noise_state, (float)world_x, (float)world_z);
-      int height = (int)((noise_val + 1.0f) * 32.0f); // Scale to reasonable height
+      int height = (int)((noise_val + 1.0f) * 32.0f);
       
       for(int y = 0; y < CHUNK_Y && y <= height; y++) {
         BlockType block_type = BLOCK_TYPE_DIRT;
@@ -47,6 +47,8 @@ void chunk_load(Chunk* chunk)
         else if(y < 10)
           block_type = BLOCK_TYPE_COBBLESTONE;
         
+        int idx = x * CHUNK_Y * CHUNK_XZ + y * CHUNK_XZ + z;
+        chunk->blocks[idx] = block_type;
         chunk_spatial_add_block(block_type, world_x, y, world_z);
       }
     }
@@ -61,6 +63,16 @@ void chunk_unload(Chunk* chunk)
     return;
   
   chunk->is_loaded = 0;
+}
+
+int chunk_get_block(Chunk* chunk, int local_x, int local_y, int local_z)
+{
+  if(!chunk || !chunk->blocks)
+    return BLOCK_TYPE_AIR;
+  if(local_x < 0 || local_x >= CHUNK_XZ || local_y < 0 || local_y >= CHUNK_Y || local_z < 0 || local_z >= CHUNK_XZ)
+    return BLOCK_TYPE_AIR;
+  int idx = local_x * CHUNK_Y * CHUNK_XZ + local_y * CHUNK_XZ + local_z;
+  return chunk->blocks[idx];
 }
 
 static int is_face_visible(int bx, int by, int bz, int dx, int dy, int dz)
@@ -103,17 +115,27 @@ Chunk* chunk_create(int chunk_x, int chunk_z)
   chunk->mesh.vertex_count = 0;
   chunk->vertex_capacity = CHUNK_XZ * CHUNK_Y * CHUNK_XZ * 6 * 6;
   chunk->vertices = (Vertex*)malloc(chunk->vertex_capacity * sizeof(Vertex));
+  if(!chunk->vertices) {
+    free(chunk);
+    return NULL;
+  }
   chunk->vertex_count = 0;
+  
+  int block_count = CHUNK_XZ * CHUNK_Y * CHUNK_XZ;
+  chunk->blocks = (int*)malloc(block_count * sizeof(int));
+  if(!chunk->blocks) {
+    free(chunk->vertices);
+    free(chunk);
+    return NULL;
+  }
+  memset(chunk->blocks, 0, block_count * sizeof(int));
   
   return chunk;
 }
 
 void chunk_rebuild_mesh(Chunk* chunk)
 {
-  if(!chunk)
-    return;
-
-  if(!chunk->vertices)
+  if(!chunk || !chunk->vertices || !chunk->blocks)
     return;
   
   int vert_count = 0;
@@ -123,31 +145,27 @@ void chunk_rebuild_mesh(Chunk* chunk)
   for(int x = 0; x < CHUNK_XZ; x++) {
     for(int y = 0; y < CHUNK_Y; y++) {
       for(int z = 0; z < CHUNK_XZ; z++) {
+        int idx = x * CHUNK_Y * CHUNK_XZ + y * CHUNK_XZ + z;
+        int block_type = chunk->blocks[idx];
+        if(block_type == BLOCK_TYPE_AIR)
+          continue;
+
         int world_x = base_x + x;
         int world_y = y;
         int world_z = base_z + z;
-        
-        WorldBlock* block = chunk_spatial_get_block_at(world_x, world_y, world_z);
-        if(!block || block->type == BLOCK_TYPE_AIR)
-          continue;
 
-        BlockTextures block_tex = texture_registry_get_block_textures(block->type);
+        BlockTextures block_tex = texture_registry_get_block_textures(block_type);
 
         if(is_face_visible(world_x, world_y, world_z, 0, 0, -1))
           add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_FRONT, block_tex.front);
-        
         if(is_face_visible(world_x, world_y, world_z, 0, 0, 1))
           add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_BACK, block_tex.back);
-        
         if(is_face_visible(world_x, world_y, world_z, -1, 0, 0))
           add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_LEFT, block_tex.left);
-        
         if(is_face_visible(world_x, world_y, world_z, 1, 0, 0))
           add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_RIGHT, block_tex.right);
-        
         if(is_face_visible(world_x, world_y, world_z, 0, -1, 0))
           add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_BOTTOM, block_tex.bottom);
-        
         if(is_face_visible(world_x, world_y, world_z, 0, 1, 0))
           add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_TOP, block_tex.top);
       }
@@ -192,6 +210,10 @@ void chunk_destroy(Chunk* chunk)
   
   if(chunk->vertices) {
     free(chunk->vertices);
+  }
+  
+  if(chunk->blocks) {
+    free(chunk->blocks);
   }
   
   free(chunk);

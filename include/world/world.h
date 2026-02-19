@@ -11,6 +11,7 @@ typedef struct GLFWwindow GLFWwindow;
 /* Render distance in chunks */
 #define RENDER_DISTANCE 8
 #define MAX_CHUNKS 128
+#define CHUNKS_PER_FRAME 4
 
 int world_init(Player* player);
 void world_update(float delta_time);

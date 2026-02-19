@@ -10,6 +10,7 @@
 
 static Window window;
 static Shader basic_shader;
+static Shader fog_shader;
 static double last_time;
 static float total_time;
 static Player player;
@@ -70,6 +71,14 @@ int engine_init()
     return ENGINE_FAIL;
   }
 
+  if(shader_load(&fog_shader, 
+                 ".tinycraft/shaders/fog.vsh", 
+                 ".tinycraft/shaders/fog.fsh") != SHADER_OK)
+  {
+    printf("Failed to load fog shader\n");
+    return ENGINE_FAIL;
+  }
+
   if(world_init(&player) != MESH_OK)
   {
     printf("Failed to initialize world\n");
@@ -118,18 +127,19 @@ void engine_run()
 
     glm_mat4_identity(model);
 
-    shader_use(&basic_shader);
-    shader_set_mat4(&basic_shader, "model", model);
-    shader_set_mat4(&basic_shader, "view", view);
-    shader_set_mat4(&basic_shader, "projection", projection);
-    shader_set_int(&basic_shader, "texture_sampler", 0);
+    shader_use(&fog_shader);
+    shader_set_mat4(&fog_shader, "model", model);
+    shader_set_mat4(&fog_shader, "view", view);
+    shader_set_mat4(&fog_shader, "projection", projection);
+    shader_set_int(&fog_shader, "texture_sampler", 0);
 
-    world_render(&basic_shader, view, projection);
+    world_render(&fog_shader, view, projection);
 
     win_update(&window);
   }
 
   shader_delete(&basic_shader);
+  shader_delete(&fog_shader);
   world_cleanup();
   win_close(&window);
 }

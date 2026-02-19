@@ -151,12 +151,14 @@ void world_update(float delta_time)
     world_update_chunks(world_player);
   }
   
-  if(queue_index < queue_count && queue_index < MAX_CHUNKS) {
+  int chunks_processed = 0;
+  while(queue_index < queue_count && chunks_processed < CHUNKS_PER_FRAME) {
     int chunk_idx = chunk_rebuild_queue[queue_index];
     if(chunks[chunk_idx]) {
       chunk_rebuild_mesh(chunks[chunk_idx]);
     }
     queue_index++;
+    chunks_processed++;
   }
   
   if(queue_index >= queue_count) {
