@@ -2,7 +2,9 @@
 #define CAMERA_H
 
 #include <cglm/cglm.h>
-#include <GLFW/glfw3.h>
+
+/* Forward declaration to avoid GL header include issues */
+typedef struct GLFWwindow GLFWwindow;
 
 #define CAMERA_OK        1
 #define CAMERA_FAIL     -1

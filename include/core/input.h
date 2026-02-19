@@ -1,8 +1,10 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include <GLFW/glfw3.h>
 #include <stdbool.h>
+
+/* Forward declaration to avoid GL header include issues */
+typedef struct GLFWwindow GLFWwindow;
 
 #define INPUT_OK        1
 #define INPUT_FAIL     -1

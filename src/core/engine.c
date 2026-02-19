@@ -4,15 +4,15 @@
 #include <graphics/mesh.h>
 #include <graphics/vertex.h>
 #include <graphics/voxel.h>
-#include <graphics/camera.h>
 #include <world/world.h>
+#include <player/player.h>
 #include <cglm/cglm.h>
 
 static Window window;
 static Shader basic_shader;
 static double last_time;
 static float total_time;
-static Camera camera;
+static Player player;
 
 int engine_init_components()
 {
@@ -67,15 +67,9 @@ int engine_init()
     return ENGINE_FAIL;
   }
 
-  if(world_init() != MESH_OK)
+  if(world_init(&player) != MESH_OK)
   {
     printf("Failed to initialize world\n");
-    return ENGINE_FAIL;
-  }
-
-  if(camera_init(&camera, 0.0f, 0.0f, 3.0f) != CAMERA_OK)
-  {
-    printf("Failed to initialize camera\n");
     return ENGINE_FAIL;
   }
 
@@ -87,20 +81,14 @@ int engine_init()
 }
 
 
-static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-  Camera* cam = (Camera*)glfwGetWindowUserPointer(window);
-  if(cam)
-    camera_mouse_callback(cam, xpos, ypos);
-}
 
 void engine_run()
 {
   mat4 projection, view, model;
   glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
   
-  glfwSetWindowUserPointer(window.window, &camera);
-  glfwSetCursorPosCallback(window.window, mouse_callback);
+  glfwSetWindowUserPointer(window.window, &player);
+  glfwSetCursorPosCallback(window.window, world_mouse_callback);
 
   while(!window.should_close)
   {
@@ -109,8 +97,8 @@ void engine_run()
     last_time = current_time;
     total_time += delta_time;
 
-    camera_update(&camera, window.window, delta_time);
-    camera_get_view_matrix(&camera, view);
+    player_update(&player, window.window, delta_time);
+    player_get_view_matrix(&player, view);
 
     world_update(delta_time);
 

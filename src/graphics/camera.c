@@ -1,5 +1,6 @@
 #include <graphics/camera.h>
 #include <core/input.h>
+#include <GLFW/glfw3.h>
 #include <math.h>
 
 int camera_init(Camera* camera, float x, float y, float z)

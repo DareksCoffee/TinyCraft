@@ -9,13 +9,15 @@
 #include <graphics/texture_registry.h>
 #include <graphics/shader.h>
 #include <graphics/frustum.h>
+#include <player/player.h>
+#include <GLFW/glfw3.h>
 #include <cglm/cglm.h>
 #include <stdlib.h>
 
 static Chunk* chunks[9];
 static int chunk_count = 0;
 
-int world_init(void)
+int world_init(Player* player)
 {
   block_registry_init();
   texture_registry_init();
@@ -32,6 +34,10 @@ int world_init(void)
       }
     }
   }
+
+  vec3 spawn_pos = {8.0f, 65.0f, 8.0f};
+  if(player_init(player, spawn_pos) != PLAYER_OK)
+    return MESH_FAIL;
 
   return MESH_OK;
 }
@@ -77,3 +83,38 @@ void world_cleanup(void)
   chunk_count = 0;
 }
 
+void world_mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+  Player* plyr = (Player*)glfwGetWindowUserPointer(window);
+  if(plyr)
+    camera_mouse_callback(&plyr->camera, xpos, ypos);
+}
+
+int world_get_block_at(int x, int y, int z)
+{
+  WorldBlock* block = world_grid_get_block_at(x, y, z);
+  return block ? block->type : BLOCK_TYPE_AIR;
+}
+
+int world_check_collision(AABB* aabb)
+{
+  int min_x = (int)aabb->min[0];
+  int max_x = (int)aabb->max[0] + 1;
+  int min_y = (int)aabb->min[1];
+  int max_y = (int)aabb->max[1] + 1;
+  int min_z = (int)aabb->min[2];
+  int max_z = (int)aabb->max[2] + 1;
+
+  for(int x = min_x; x <= max_x; x++) {
+    for(int y = min_y; y <= max_y; y++) {
+      for(int z = min_z; z <= max_z; z++) {
+        if(world_get_block_at(x, y, z) != BLOCK_TYPE_AIR) {
+          AABB block_aabb = aabb_create((vec3){x + 0.5f, y + 0.5f, z + 0.5f}, 1.0f, 1.0f, 1.0f);
+          if(aabb_intersects(aabb, &block_aabb))
+            return 1;
+        }
+      }
+    }
+  }
+  return 0;
+}
