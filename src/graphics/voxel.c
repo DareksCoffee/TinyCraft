@@ -206,71 +206,73 @@ void voxel_render_culled(Voxel* voxel, VoxelNeighborCheck neighbor_check, void* 
   Vertex* face_verts;
   int vert_count;
 
+  // Front face
   if(!neighbor_check(0, 0, -1, context)) {
     get_face_vertices_with_texture(FACE_FRONT, &face_verts, &vert_count, voxel->block_textures.front);
     if(face_verts && vert_count > 0) {
-      Mesh temp_mesh;
-      mesh_init(&temp_mesh, face_verts, vert_count);
-      mesh_render(&temp_mesh);
-      glDeleteBuffers(1, &temp_mesh.vbo);
-      glDeleteVertexArrays(1, &temp_mesh.vao);
+      glBindBuffer(GL_COPY_WRITE_BUFFER, culled_meshes[FACE_FRONT].vbo);
+      glBufferSubData(GL_COPY_WRITE_BUFFER, 0, vert_count * sizeof(Vertex), face_verts);
+      culled_meshes[FACE_FRONT].vertex_count = vert_count;
+      mesh_render(&culled_meshes[FACE_FRONT]);
     }
   }
 
+  // Back face
   if(!neighbor_check(0, 0, 1, context)) {
     get_face_vertices_with_texture(FACE_BACK, &face_verts, &vert_count, voxel->block_textures.back);
     if(face_verts && vert_count > 0) {
-      Mesh temp_mesh;
-      mesh_init(&temp_mesh, face_verts, vert_count);
-      mesh_render(&temp_mesh);
-      glDeleteBuffers(1, &temp_mesh.vbo);
-      glDeleteVertexArrays(1, &temp_mesh.vao);
+      glBindBuffer(GL_COPY_WRITE_BUFFER, culled_meshes[FACE_BACK].vbo);
+      glBufferSubData(GL_COPY_WRITE_BUFFER, 0, vert_count * sizeof(Vertex), face_verts);
+      culled_meshes[FACE_BACK].vertex_count = vert_count;
+      mesh_render(&culled_meshes[FACE_BACK]);
     }
   }
 
+  // Left face
   if(!neighbor_check(-1, 0, 0, context)) {
     get_face_vertices_with_texture(FACE_LEFT, &face_verts, &vert_count, voxel->block_textures.left);
     if(face_verts && vert_count > 0) {
-      Mesh temp_mesh;
-      mesh_init(&temp_mesh, face_verts, vert_count);
-      mesh_render(&temp_mesh);
-      glDeleteBuffers(1, &temp_mesh.vbo);
-      glDeleteVertexArrays(1, &temp_mesh.vao);
+      glBindBuffer(GL_COPY_WRITE_BUFFER, culled_meshes[FACE_LEFT].vbo);
+      glBufferSubData(GL_COPY_WRITE_BUFFER, 0, vert_count * sizeof(Vertex), face_verts);
+      culled_meshes[FACE_LEFT].vertex_count = vert_count;
+      mesh_render(&culled_meshes[FACE_LEFT]);
     }
   }
 
+  // Right face
   if(!neighbor_check(1, 0, 0, context)) {
     get_face_vertices_with_texture(FACE_RIGHT, &face_verts, &vert_count, voxel->block_textures.right);
     if(face_verts && vert_count > 0) {
-      Mesh temp_mesh;
-      mesh_init(&temp_mesh, face_verts, vert_count);
-      mesh_render(&temp_mesh);
-      glDeleteBuffers(1, &temp_mesh.vbo);
-      glDeleteVertexArrays(1, &temp_mesh.vao);
+      glBindBuffer(GL_COPY_WRITE_BUFFER, culled_meshes[FACE_RIGHT].vbo);
+      glBufferSubData(GL_COPY_WRITE_BUFFER, 0, vert_count * sizeof(Vertex), face_verts);
+      culled_meshes[FACE_RIGHT].vertex_count = vert_count;
+      mesh_render(&culled_meshes[FACE_RIGHT]);
     }
   }
 
+  // Bottom face
   if(!neighbor_check(0, -1, 0, context)) {
     get_face_vertices_with_texture(FACE_BOTTOM, &face_verts, &vert_count, voxel->block_textures.bottom);
     if(face_verts && vert_count > 0) {
-      Mesh temp_mesh;
-      mesh_init(&temp_mesh, face_verts, vert_count);
-      mesh_render(&temp_mesh);
-      glDeleteBuffers(1, &temp_mesh.vbo);
-      glDeleteVertexArrays(1, &temp_mesh.vao);
+      glBindBuffer(GL_COPY_WRITE_BUFFER, culled_meshes[FACE_BOTTOM].vbo);
+      glBufferSubData(GL_COPY_WRITE_BUFFER, 0, vert_count * sizeof(Vertex), face_verts);
+      culled_meshes[FACE_BOTTOM].vertex_count = vert_count;
+      mesh_render(&culled_meshes[FACE_BOTTOM]);
     }
   }
 
+  // Top face
   if(!neighbor_check(0, 1, 0, context)) {
     get_face_vertices_with_texture(FACE_TOP, &face_verts, &vert_count, voxel->block_textures.top);
     if(face_verts && vert_count > 0) {
-      Mesh temp_mesh;
-      mesh_init(&temp_mesh, face_verts, vert_count);
-      mesh_render(&temp_mesh);
-      glDeleteBuffers(1, &temp_mesh.vbo);
-      glDeleteVertexArrays(1, &temp_mesh.vao);
+      glBindBuffer(GL_COPY_WRITE_BUFFER, culled_meshes[FACE_TOP].vbo);
+      glBufferSubData(GL_COPY_WRITE_BUFFER, 0, vert_count * sizeof(Vertex), face_verts);
+      culled_meshes[FACE_TOP].vertex_count = vert_count;
+      mesh_render(&culled_meshes[FACE_TOP]);
     }
   }
+
+  glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 }
 
 void voxel_system_cleanup(void)

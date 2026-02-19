@@ -1,9 +1,9 @@
-#include <world/block_registry.h>
+#include <world/registry.h>
 #include <stdlib.h>
 
 static BlockData block_data[MAX_BLOCK_TYPES];
 
-void block_registry_init(void)
+void registry_init(void)
 {
   for(int i = 0; i < MAX_BLOCK_TYPES; i++)
   {
@@ -24,7 +24,7 @@ void block_registry_init(void)
   block_data[BLOCK_TYPE_DIRT].name = "dirt";
 }
 
-BlockData* block_registry_get(BlockType type)
+BlockData* registry_get(BlockType type)
 {
   return &block_data[type];
 }

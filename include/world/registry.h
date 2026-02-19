@@ -1,5 +1,5 @@
-#ifndef BLOCK_REGISTRY_H
-#define BLOCK_REGISTRY_H
+#ifndef REGISTRY_H
+#define REGISTRY_H
 
 #include <world/block_type.h>
 #include <stdint.h>
@@ -12,7 +12,7 @@ typedef struct
   const char* name;
 } BlockData;
 
-void block_registry_init(void);
-BlockData* block_registry_get(BlockType type);
+void registry_init(void);
+BlockData* registry_get(BlockType type);
 
 #endif

@@ -1,7 +1,7 @@
 #include <graphics/texture_registry.h>
 #include <graphics/texture_atlas.h>
 #include <world/block_type.h>
-#include <world/block_registry.h>
+#include <world/registry.h>
 #include <stdlib.h>
 
 static TextureAtlas atlas;

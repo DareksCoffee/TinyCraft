@@ -14,7 +14,7 @@
 
 #define GRAVITY       -25.0f
 #define JUMP_FORCE    9.0f
-#define MOVE_SPEED    5.0f
+#define MOVE_SPEED    12.0f
 
 typedef struct {
     vec3 position;

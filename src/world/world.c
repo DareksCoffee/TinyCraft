@@ -1,7 +1,7 @@
 #include <world/world.h>
-#include <world/block_registry.h>
-#include <world/world_grid.h>
-#include <world/world_neighbors.h>
+#include <world/registry.h>
+#include <world/chunk_spatial.h>
+#include <world/neighbor_query.h>
 #include <world/chunk.h>
 #include <graphics/voxel.h>
 #include <graphics/mesh.h>
@@ -16,28 +16,127 @@
 #include <stdlib.h>
 #include <math.h>
 
-static Chunk* chunks[9];
+static Chunk* chunks[MAX_CHUNKS];
 static int chunk_count = 0;
+static int last_player_chunk_x = 0;
+static int last_player_chunk_z = 0;
+static Player* world_player = NULL;
+static int chunk_rebuild_queue[MAX_CHUNKS];
+static int queue_count = 0;
+static int queue_index = 0;
 
-int world_init(Player* player)
+static int world_find_chunk(int chunk_x, int chunk_z)
 {
-  block_registry_init();
-  texture_registry_init();
-  voxel_system_init();
-  
-  chunk_count = 0;
-  for(int cx = -1; cx <= 1; cx++) {
-    for(int cz = -1; cz <= 1; cz++) {
-      chunk_gen(cx, cz);
-      chunks[chunk_count] = chunk_create(cx, cz);
-      if(chunks[chunk_count]) {
-        chunk_rebuild_mesh(chunks[chunk_count]);
-        chunk_count++;
+  for(int i = 0; i < MAX_CHUNKS; i++) {
+    if(chunks[i] && chunks[i]->x == chunk_x && chunks[i]->z == chunk_z) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static int world_find_empty_slot(void)
+{
+  for(int i = 0; i < MAX_CHUNKS; i++) {
+    if(!chunks[i]) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+static int world_is_chunk_in_range(int chunk_x, int chunk_z, int player_chunk_x, int player_chunk_z)
+{
+  int dx = chunk_x - player_chunk_x;
+  int dz = chunk_z - player_chunk_z;
+  int distance = (dx * dx) + (dz * dz);
+  return distance <= (RENDER_DISTANCE * RENDER_DISTANCE);
+}
+
+void world_unload_far_chunks(int player_chunk_x, int player_chunk_z)
+{
+  for(int i = 0; i < MAX_CHUNKS; i++) {
+    if(!chunks[i] || !chunks[i]->is_loaded)
+      continue;
+    
+    if(!world_is_chunk_in_range(chunks[i]->x, chunks[i]->z, player_chunk_x, player_chunk_z)) {
+      chunk_unload(chunks[i]);
+      chunk_destroy(chunks[i]);
+      chunks[i] = NULL;
+    }
+  }
+}
+
+void world_load_new_chunks(int player_chunk_x, int player_chunk_z)
+{
+  for(int cx = player_chunk_x - RENDER_DISTANCE; cx <= player_chunk_x + RENDER_DISTANCE; cx++) {
+    for(int cz = player_chunk_z - RENDER_DISTANCE; cz <= player_chunk_z + RENDER_DISTANCE; cz++) {
+      if(!world_is_chunk_in_range(cx, cz, player_chunk_x, player_chunk_z))
+        continue;
+      
+      int idx = world_find_chunk(cx, cz);
+      if(idx == -1) {
+        int empty_slot = world_find_empty_slot();
+        if(empty_slot == -1) {
+          continue;
+        }
+        
+        chunks[empty_slot] = chunk_create(cx, cz);
+        if(chunks[empty_slot]) {
+          chunk_load(chunks[empty_slot]);
+          if(queue_count < MAX_CHUNKS) {
+            chunk_rebuild_queue[queue_count++] = empty_slot;
+          }
+          if(empty_slot >= chunk_count) {
+            chunk_count = empty_slot + 1;
+          }
+        }
+      } else if(!chunks[idx]->is_loaded) {
+        chunk_load(chunks[idx]);
+        if(queue_count < MAX_CHUNKS) {
+          chunk_rebuild_queue[queue_count++] = idx;
+        }
       }
     }
   }
+}
 
-  vec3 spawn_pos = {8.0f, 65.0f, 8.0f};
+void world_update_chunks(Player* player)
+{
+  if(!player)
+    return;
+  
+  int player_chunk_x = (int)floorf(player->position[0] / CHUNK_XZ);
+  int player_chunk_z = (int)floorf(player->position[2] / CHUNK_XZ);
+  
+  if(player_chunk_x != last_player_chunk_x || player_chunk_z != last_player_chunk_z) {
+    world_unload_far_chunks(player_chunk_x, player_chunk_z);
+    world_load_new_chunks(player_chunk_x, player_chunk_z);
+    
+    last_player_chunk_x = player_chunk_x;
+    last_player_chunk_z = player_chunk_z;
+  }
+}
+
+int world_init(Player* player)
+{
+  registry_init();
+  texture_registry_init();
+  voxel_system_init();
+  chunk_spatial_clear();
+  
+  world_player = player;
+  chunk_count = 0;
+  
+  int player_chunk_x = 0;
+  int player_chunk_z = 0;
+  
+  world_load_new_chunks(player_chunk_x, player_chunk_z);
+  
+  last_player_chunk_x = player_chunk_x;
+  last_player_chunk_z = player_chunk_z;
+
+  vec3 spawn_pos = {8.0f, 70.0f, 8.0f};
   if(player_init(player, spawn_pos) != PLAYER_OK)
     return MESH_FAIL;
 
@@ -47,6 +146,23 @@ int world_init(Player* player)
 void world_update(float delta_time)
 {
   (void)delta_time;
+  
+  if(world_player) {
+    world_update_chunks(world_player);
+  }
+  
+  if(queue_index < queue_count && queue_index < MAX_CHUNKS) {
+    int chunk_idx = chunk_rebuild_queue[queue_index];
+    if(chunks[chunk_idx]) {
+      chunk_rebuild_mesh(chunks[chunk_idx]);
+    }
+    queue_index++;
+  }
+  
+  if(queue_index >= queue_count) {
+    queue_index = 0;
+    queue_count = 0;
+  }
 }
 
 void world_render(Shader* shader, mat4 view, mat4 projection)
@@ -62,9 +178,9 @@ void world_render(Shader* shader, mat4 view, mat4 projection)
   glm_mat4_identity(model);
   shader_set_mat4(shader, "model", model);
 
-  for(int i = 0; i < chunk_count; i++) {
+  for(int i = 0; i < MAX_CHUNKS; i++) {
     Chunk* chunk = chunks[i];
-    if(!chunk)
+    if(!chunk || !chunk->is_loaded || chunk->mesh.vertex_count == 0)
       continue;
 
     vec3 chunk_min = {(float)(chunk->x * CHUNK_XZ) - 0.5f, -0.5f, (float)(chunk->z * CHUNK_XZ) - 0.5f};
@@ -78,10 +194,14 @@ void world_render(Shader* shader, mat4 view, mat4 projection)
 
 void world_cleanup(void)
 {
-  for(int i = 0; i < chunk_count; i++) {
-    if(chunks[i])
+  for(int i = 0; i < MAX_CHUNKS; i++) {
+    if(chunks[i]) {
+      chunk_unload(chunks[i]);
       chunk_destroy(chunks[i]);
+      chunks[i] = NULL;
+    }
   }
+  
   chunk_count = 0;
 }
 
@@ -97,7 +217,7 @@ void world_mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 int world_get_block_at(int x, int y, int z)
 {
-  WorldBlock* block = world_grid_get_block_at(x, y, z);
+  WorldBlock* block = chunk_spatial_get_block_at(x, y, z);
   return block ? block->type : BLOCK_TYPE_AIR;
 }
 

@@ -3,7 +3,7 @@
 
 #include <graphics/texture.h>
 #include <world/block_type.h>
-#include <world/block_registry.h>
+#include <world/registry.h>
 
 typedef struct
 {

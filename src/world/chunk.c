@@ -1,38 +1,71 @@
 #define FNL_IMPL
 #include <fastnoise.h>
 #include <world/chunk.h>
-#include <world/world_grid.h>
-#include <world/world_neighbors.h>
+#include <world/chunk_spatial.h>
+#include <world/neighbor_query.h>
+#include <world/block_type.h>
 #include <graphics/texture_registry.h>
 #include <graphics/voxel.h>
 #include <graphics/vertex.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-void chunk_gen(int chunk_x, int chunk_z)
+static fnl_state noise_state;
+static int noise_initialized = 0;
+
+static void init_noise(void)
 {
-  for(int x = 0 ; x < CHUNK_XZ ; x++)
-  {
-    for(int y = 0 ; y < CHUNK_Y ; y++)
-    {
-      for(int z = 0 ; z < CHUNK_XZ ; z++)
-      {
-        int world_x = (chunk_x * CHUNK_XZ) + x; 
-        int world_z = (chunk_z * CHUNK_XZ) + z;
-        if(y == CHUNK_Y - 1)
-          world_grid_add_block(BLOCK_TYPE_GRASS, world_x, y, world_z);
-        else if(y >= CHUNK_Y - 3)
-            world_grid_add_block(BLOCK_TYPE_DIRT, world_x, y, world_z);
-        else 
-          world_grid_add_block(BLOCK_TYPE_COBBLESTONE, world_x, y, world_z);
+  if(noise_initialized)
+    return;
+  noise_state = fnlCreateState();
+  noise_state.noise_type = FNL_NOISE_PERLIN;
+  noise_state.frequency = 0.005f;
+  noise_state.octaves = 4;
+  noise_initialized = 1;
+}
+
+void chunk_load(Chunk* chunk)
+{
+  if(!chunk)
+    return;
+  
+  if(!noise_initialized)
+    init_noise();
+
+  for(int x = 0; x < CHUNK_XZ; x++) {
+    for(int z = 0; z < CHUNK_XZ; z++) {
+      int world_x = chunk->x * CHUNK_XZ + x;
+      int world_z = chunk->z * CHUNK_XZ + z;
+      
+      float noise_val = fnlGetNoise2D(&noise_state, (float)world_x, (float)world_z);
+      int height = (int)((noise_val + 1.0f) * 32.0f); // Scale to reasonable height
+      
+      for(int y = 0; y < CHUNK_Y && y <= height; y++) {
+        BlockType block_type = BLOCK_TYPE_DIRT;
+        if(y == height)
+          block_type = BLOCK_TYPE_GRASS;
+        else if(y < 10)
+          block_type = BLOCK_TYPE_COBBLESTONE;
+        
+        chunk_spatial_add_block(block_type, world_x, y, world_z);
       }
     }
   }
+  
+  chunk->is_loaded = 1;
+}
+
+void chunk_unload(Chunk* chunk)
+{
+  if(!chunk)
+    return;
+  
+  chunk->is_loaded = 0;
 }
 
 static int is_face_visible(int bx, int by, int bz, int dx, int dy, int dz)
 {
-  WorldBlock* neighbor = world_grid_get_block_at(bx + dx, by + dy, bz + dz);
+  WorldBlock* neighbor = chunk_spatial_get_block_at(bx + dx, by + dy, bz + dz);
   if(!neighbor || neighbor->type == BLOCK_TYPE_AIR)
     return 1;
   return 0;
@@ -64,9 +97,13 @@ Chunk* chunk_create(int chunk_x, int chunk_z)
   chunk->x = chunk_x;
   chunk->z = chunk_z;
   chunk->is_dirty = 1;
+  chunk->is_loaded = 0;
   chunk->mesh.vao = 0;
   chunk->mesh.vbo = 0;
   chunk->mesh.vertex_count = 0;
+  chunk->vertex_capacity = CHUNK_XZ * CHUNK_Y * CHUNK_XZ * 6 * 6;
+  chunk->vertices = (Vertex*)malloc(chunk->vertex_capacity * sizeof(Vertex));
+  chunk->vertex_count = 0;
   
   return chunk;
 }
@@ -76,8 +113,7 @@ void chunk_rebuild_mesh(Chunk* chunk)
   if(!chunk)
     return;
 
-  Vertex* vertices = (Vertex*)malloc(CHUNK_XZ * CHUNK_Y * CHUNK_XZ * 6 * 6 * sizeof(Vertex));
-  if(!vertices)
+  if(!chunk->vertices)
     return;
   
   int vert_count = 0;
@@ -91,32 +127,34 @@ void chunk_rebuild_mesh(Chunk* chunk)
         int world_y = y;
         int world_z = base_z + z;
         
-        WorldBlock* block = world_grid_get_block_at(world_x, world_y, world_z);
+        WorldBlock* block = chunk_spatial_get_block_at(world_x, world_y, world_z);
         if(!block || block->type == BLOCK_TYPE_AIR)
           continue;
 
         BlockTextures block_tex = texture_registry_get_block_textures(block->type);
 
         if(is_face_visible(world_x, world_y, world_z, 0, 0, -1))
-          add_face_vertices(&vertices, &vert_count, world_x, world_y, world_z, FACE_FRONT, block_tex.front);
+          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_FRONT, block_tex.front);
         
         if(is_face_visible(world_x, world_y, world_z, 0, 0, 1))
-          add_face_vertices(&vertices, &vert_count, world_x, world_y, world_z, FACE_BACK, block_tex.back);
+          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_BACK, block_tex.back);
         
         if(is_face_visible(world_x, world_y, world_z, -1, 0, 0))
-          add_face_vertices(&vertices, &vert_count, world_x, world_y, world_z, FACE_LEFT, block_tex.left);
+          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_LEFT, block_tex.left);
         
         if(is_face_visible(world_x, world_y, world_z, 1, 0, 0))
-          add_face_vertices(&vertices, &vert_count, world_x, world_y, world_z, FACE_RIGHT, block_tex.right);
+          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_RIGHT, block_tex.right);
         
         if(is_face_visible(world_x, world_y, world_z, 0, -1, 0))
-          add_face_vertices(&vertices, &vert_count, world_x, world_y, world_z, FACE_BOTTOM, block_tex.bottom);
+          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_BOTTOM, block_tex.bottom);
         
         if(is_face_visible(world_x, world_y, world_z, 0, 1, 0))
-          add_face_vertices(&vertices, &vert_count, world_x, world_y, world_z, FACE_TOP, block_tex.top);
+          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_TOP, block_tex.top);
       }
     }
   }
+
+  chunk->vertex_count = vert_count;
 
   if(chunk->mesh.vao != 0) {
     glDeleteBuffers(1, &chunk->mesh.vbo);
@@ -124,14 +162,13 @@ void chunk_rebuild_mesh(Chunk* chunk)
   }
 
   if(vert_count > 0) {
-    mesh_init(&chunk->mesh, vertices, vert_count);
+    mesh_init(&chunk->mesh, chunk->vertices, vert_count);
   } else {
     chunk->mesh.vao = 0;
     chunk->mesh.vbo = 0;
     chunk->mesh.vertex_count = 0;
   }
 
-  free(vertices);
   chunk->is_dirty = 0;
 }
 
@@ -151,6 +188,10 @@ void chunk_destroy(Chunk* chunk)
   if(chunk->mesh.vao != 0) {
     glDeleteBuffers(1, &chunk->mesh.vbo);
     glDeleteVertexArrays(1, &chunk->mesh.vao);
+  }
+  
+  if(chunk->vertices) {
+    free(chunk->vertices);
   }
   
   free(chunk);

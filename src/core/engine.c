@@ -88,7 +88,7 @@ int engine_init()
 void engine_run()
 {
   mat4 view, model;
-  glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
+  glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 500.0f, projection);
   
   win_set_user_data(&window, &player);
   glfwSetCursorPosCallback(window.window, world_mouse_callback);
@@ -113,7 +113,7 @@ void engine_run()
 
     world_update(delta_time);
 
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.55294f, 0.74510f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glm_mat4_identity(model);
