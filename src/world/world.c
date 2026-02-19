@@ -2,31 +2,36 @@
 #include <world/block_registry.h>
 #include <world/world_grid.h>
 #include <world/world_neighbors.h>
+#include <world/chunk.h>
 #include <graphics/voxel.h>
 #include <graphics/mesh.h>
 #include <graphics/texture.h>
 #include <graphics/texture_registry.h>
 #include <graphics/shader.h>
+#include <graphics/frustum.h>
 #include <cglm/cglm.h>
+#include <stdlib.h>
+
+static Chunk* chunks[9];
+static int chunk_count = 0;
 
 int world_init(void)
 {
   block_registry_init();
   texture_registry_init();
   voxel_system_init();
-
-  for(int x = 0 ; x < 16 ; x++)
-  {
-    for(int y = 0 ; y < 16 ; y++)
-    {
-      for(int z = 0 ; z < 16 ; z++)
-      {
-      
-      world_grid_add_block(BLOCK_TYPE_COBBLESTONE, x, y, z);
+  
+  chunk_count = 0;
+  for(int cx = -1; cx <= 1; cx++) {
+    for(int cz = -1; cz <= 1; cz++) {
+      chunk_gen(cx, cz);
+      chunks[chunk_count] = chunk_create(cx, cz);
+      if(chunks[chunk_count]) {
+        chunk_rebuild_mesh(chunks[chunk_count]);
+        chunk_count++;
       }
     }
   }
-
 
   return MESH_OK;
 }
@@ -36,43 +41,39 @@ void world_update(float delta_time)
   (void)delta_time;
 }
 
-static int world_is_fully_surrounded(WorldBlock* block)
-{
-  return world_neighbors_is_solid(0, 1, 0, block) &&
-         world_neighbors_is_solid(0, -1, 0, block) &&
-         world_neighbors_is_solid(1, 0, 0, block) &&
-         world_neighbors_is_solid(-1, 0, 0, block) &&
-         world_neighbors_is_solid(0, 0, 1, block) &&
-         world_neighbors_is_solid(0, 0, -1, block);
-}
-
 void world_render(Shader* shader, mat4 view, mat4 projection)
 {
-  (void)view;
-  (void)projection;
+  Frustum frustum;
+  frustum_from_matrices(&frustum, view, projection);
 
-  WorldBlock* blocks = world_grid_get_blocks();
-  int block_count = world_grid_get_block_count();
+  Texture* grass_texture = texture_registry_get(BLOCK_TYPE_GRASS);
+  if(grass_texture)
+    texture_bind(grass_texture);
 
-  for(int i = 0; i < block_count; i++) {
-    if(blocks[i].type == BLOCK_TYPE_AIR)
+  mat4 model;
+  glm_mat4_identity(model);
+  shader_set_mat4(shader, "model", model);
+
+  for(int i = 0; i < chunk_count; i++) {
+    Chunk* chunk = chunks[i];
+    if(!chunk)
       continue;
 
-    if(world_is_fully_surrounded(&blocks[i]))
-      continue;
+    vec3 chunk_min = {(float)(chunk->x * CHUNK_XZ) - 0.5f, -0.5f, (float)(chunk->z * CHUNK_XZ) - 0.5f};
+    vec3 chunk_max = {(float)((chunk->x + 1) * CHUNK_XZ) + 0.5f, CHUNK_Y + 0.5f, (float)((chunk->z + 1) * CHUNK_XZ) + 0.5f};
 
-    Texture* texture = texture_registry_get(blocks[i].type);
-    if(texture)
-      texture_bind(texture);
-
-    mat4 block_model;
-    glm_mat4_identity(block_model);
-    glm_translate(block_model, (vec3){(float)blocks[i].x, (float)blocks[i].y, (float)blocks[i].z});
-
-    shader_set_mat4(shader, "model", block_model);
-
-    Voxel voxel;
-    voxel_init(&voxel, blocks[i].type);
-    voxel_render_culled(&voxel, world_neighbors_is_solid, &blocks[i]);
+    if(frustum_aabb_inside(&frustum, chunk_min, chunk_max)) {
+      chunk_render(chunk);
+    }
   }
 }
+
+void world_cleanup(void)
+{
+  for(int i = 0; i < chunk_count; i++) {
+    if(chunks[i])
+      chunk_destroy(chunks[i]);
+  }
+  chunk_count = 0;
+}
+

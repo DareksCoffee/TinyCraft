@@ -7,5 +7,6 @@ typedef uint8_t BlockType;
 
 #define BLOCK_TYPE_AIR         0
 #define BLOCK_TYPE_COBBLESTONE 1
-
+#define BLOCK_TYPE_GRASS       2
+#define BLOCK_TYPE_DIRT        3
 #endif

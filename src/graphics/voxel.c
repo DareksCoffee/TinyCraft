@@ -11,91 +11,96 @@ static Mesh shared_cube_mesh;
 static Mesh culled_meshes[6]; 
 static int mesh_initialized = 0;
 
-/* Helper function to get vertices for a specific face */
-static void get_face_vertices(VoxelFace face, Vertex** out_vertices, int* out_count)
-{
-  static Vertex front_face[] = {
+static const Vertex FACE_BASE_VERTICES[6][6] = {
+  {
     { {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
     { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
     { { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
     { {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
     { { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
     { {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } }
-  };
-
-  static Vertex back_face[] = {
+  },
+  {
     { { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
     { {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
     { {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
     { { -0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
     { {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
     { { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } }
-  };
-
-  static Vertex left_face[] = {
+  },
+  {
     { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
     { { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
     { { -0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
     { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
     { { -0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
     { { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } }
-  };
-
-  static Vertex right_face[] = {
+  },
+  {
     { {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
     { {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
     { {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
     { {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
     { {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
     { {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } }
-  };
-
-  static Vertex bottom_face[] = {
+  },
+  {
     { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
     { {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
     { {  0.5f, -0.5f,  0.5f }, { 1.0f, 1.0f } },
     { { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
     { {  0.5f, -0.5f,  0.5f }, { 1.0f, 1.0f } },
     { { -0.5f, -0.5f,  0.5f }, { 0.0f, 1.0f } }
-  };
-
-  static Vertex top_face[] = {
+  },
+  {
     { { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f } },
     { {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
     { {  0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f } },
     { { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f } },
     { { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
     { {  0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } }
-  };
+  }
+};
 
-  switch(face) {
-    case FACE_FRONT:
-      *out_vertices = front_face;
-      *out_count = 6;
-      break;
-    case FACE_BACK:
-      *out_vertices = back_face;
-      *out_count = 6;
-      break;
-    case FACE_LEFT:
-      *out_vertices = left_face;
-      *out_count = 6;
-      break;
-    case FACE_RIGHT:
-      *out_vertices = right_face;
-      *out_count = 6;
-      break;
-    case FACE_BOTTOM:
-      *out_vertices = bottom_face;
-      *out_count = 6;
-      break;
-    case FACE_TOP:
-      *out_vertices = top_face;
-      *out_count = 6;
-      break;
-    default:
-      *out_vertices = NULL;
-      *out_count = 0;
+const Vertex* voxel_get_face_base_vertices(VoxelFace face)
+{
+  if(face >= 0 && face <= 5)
+    return FACE_BASE_VERTICES[face];
+  return NULL;
+}
+
+static Vertex apply_texture_coord(Vertex v, AtlasCoord coord)
+{
+  Vertex result = v;
+  result.texcoord[0] = v.texcoord[0] * coord.u_size + coord.u;
+  result.texcoord[1] = v.texcoord[1] * coord.v_size + coord.v;
+  return result;
+}
+
+void voxel_get_face_vertices(VoxelFace face, Vertex* out_vertices[6], AtlasCoord atlas_coord)
+{
+  static Vertex result_verts[6];
+  const Vertex* base = voxel_get_face_base_vertices(face);
+  
+  if(base) {
+    for(int i = 0; i < 6; i++) {
+      result_verts[i] = apply_texture_coord(base[i], atlas_coord);
+    }
+    *out_vertices = result_verts;
+  }
+}
+
+static void get_face_vertices_with_texture(VoxelFace face, Vertex** out_vertices, int* out_count, AtlasCoord coord)
+{
+  const Vertex* base = voxel_get_face_base_vertices(face);
+  static Vertex result_verts[6];
+  
+  if(base) {
+    for(int i = 0; i < 6; i++) {
+      result_verts[i] = apply_texture_coord(base[i], coord);
+    }
+    *out_vertices = result_verts;
+    *out_count = 6;
   }
 }
 
@@ -153,9 +158,14 @@ void voxel_system_init(void)
   for(int i = 0; i < 6; i++) {
     Vertex* face_verts;
     int vert_count;
-    get_face_vertices((VoxelFace)i, &face_verts, &vert_count);
+    AtlasCoord default_coord = {0.0f, 0.0f, 1.0f, 1.0f};
+    get_face_vertices_with_texture((VoxelFace)i, &face_verts, &vert_count, default_coord);
     if(face_verts && vert_count > 0) {
-      mesh_init(&culled_meshes[i], face_verts, vert_count);
+      Vertex adjusted_verts[6];
+      for(int j = 0; j < vert_count; j++) {
+        adjusted_verts[j] = face_verts[j];
+      }
+      mesh_init(&culled_meshes[i], adjusted_verts, vert_count);
     }
   }
 
@@ -176,6 +186,7 @@ int voxel_init(Voxel* voxel, BlockType block_type)
   voxel->rotation[2] = 0.0f;
 
   voxel->atlas_coord = texture_registry_get_coord(block_type);
+  voxel->block_textures = texture_registry_get_block_textures(block_type);
 
   return MESH_OK;
 }
@@ -192,30 +203,74 @@ void voxel_render_culled(Voxel* voxel, VoxelNeighborCheck neighbor_check, void* 
   if(!voxel || !mesh_initialized || !neighbor_check)
     return;
 
-  /* Check each face direction and render if neighbor is air/empty */
-  /* Front face: -Z direction */
-  if(!neighbor_check(0, 0, -1, context))
-    mesh_render(&culled_meshes[FACE_FRONT]);
+  Vertex* face_verts;
+  int vert_count;
 
-  /* Back face: +Z direction */
-  if(!neighbor_check(0, 0, 1, context))
-    mesh_render(&culled_meshes[FACE_BACK]);
+  if(!neighbor_check(0, 0, -1, context)) {
+    get_face_vertices_with_texture(FACE_FRONT, &face_verts, &vert_count, voxel->block_textures.front);
+    if(face_verts && vert_count > 0) {
+      Mesh temp_mesh;
+      mesh_init(&temp_mesh, face_verts, vert_count);
+      mesh_render(&temp_mesh);
+      glDeleteBuffers(1, &temp_mesh.vbo);
+      glDeleteVertexArrays(1, &temp_mesh.vao);
+    }
+  }
 
-  /* Left face: -X direction */
-  if(!neighbor_check(-1, 0, 0, context))
-    mesh_render(&culled_meshes[FACE_LEFT]);
+  if(!neighbor_check(0, 0, 1, context)) {
+    get_face_vertices_with_texture(FACE_BACK, &face_verts, &vert_count, voxel->block_textures.back);
+    if(face_verts && vert_count > 0) {
+      Mesh temp_mesh;
+      mesh_init(&temp_mesh, face_verts, vert_count);
+      mesh_render(&temp_mesh);
+      glDeleteBuffers(1, &temp_mesh.vbo);
+      glDeleteVertexArrays(1, &temp_mesh.vao);
+    }
+  }
 
-  /* Right face: +X direction */
-  if(!neighbor_check(1, 0, 0, context))
-    mesh_render(&culled_meshes[FACE_RIGHT]);
+  if(!neighbor_check(-1, 0, 0, context)) {
+    get_face_vertices_with_texture(FACE_LEFT, &face_verts, &vert_count, voxel->block_textures.left);
+    if(face_verts && vert_count > 0) {
+      Mesh temp_mesh;
+      mesh_init(&temp_mesh, face_verts, vert_count);
+      mesh_render(&temp_mesh);
+      glDeleteBuffers(1, &temp_mesh.vbo);
+      glDeleteVertexArrays(1, &temp_mesh.vao);
+    }
+  }
 
-  /* Bottom face: -Y direction */
-  if(!neighbor_check(0, -1, 0, context))
-    mesh_render(&culled_meshes[FACE_BOTTOM]);
+  if(!neighbor_check(1, 0, 0, context)) {
+    get_face_vertices_with_texture(FACE_RIGHT, &face_verts, &vert_count, voxel->block_textures.right);
+    if(face_verts && vert_count > 0) {
+      Mesh temp_mesh;
+      mesh_init(&temp_mesh, face_verts, vert_count);
+      mesh_render(&temp_mesh);
+      glDeleteBuffers(1, &temp_mesh.vbo);
+      glDeleteVertexArrays(1, &temp_mesh.vao);
+    }
+  }
 
-  /* Top face: +Y direction */
-  if(!neighbor_check(0, 1, 0, context))
-    mesh_render(&culled_meshes[FACE_TOP]);
+  if(!neighbor_check(0, -1, 0, context)) {
+    get_face_vertices_with_texture(FACE_BOTTOM, &face_verts, &vert_count, voxel->block_textures.bottom);
+    if(face_verts && vert_count > 0) {
+      Mesh temp_mesh;
+      mesh_init(&temp_mesh, face_verts, vert_count);
+      mesh_render(&temp_mesh);
+      glDeleteBuffers(1, &temp_mesh.vbo);
+      glDeleteVertexArrays(1, &temp_mesh.vao);
+    }
+  }
+
+  if(!neighbor_check(0, 1, 0, context)) {
+    get_face_vertices_with_texture(FACE_TOP, &face_verts, &vert_count, voxel->block_textures.top);
+    if(face_verts && vert_count > 0) {
+      Mesh temp_mesh;
+      mesh_init(&temp_mesh, face_verts, vert_count);
+      mesh_render(&temp_mesh);
+      glDeleteBuffers(1, &temp_mesh.vbo);
+      glDeleteVertexArrays(1, &temp_mesh.vao);
+    }
+  }
 }
 
 void voxel_system_cleanup(void)

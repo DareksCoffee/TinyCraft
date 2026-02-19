@@ -21,6 +21,11 @@ AtlasCoord texture_registry_get_coord(BlockType type)
   return texture_atlas_get_coord(&atlas, type);
 }
 
+BlockTextures texture_registry_get_block_textures(BlockType type)
+{
+  return texture_atlas_get_block_textures(&atlas, type);
+}
+
 void texture_registry_cleanup(void)
 {
   texture_atlas_cleanup(&atlas);

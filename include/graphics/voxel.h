@@ -2,12 +2,14 @@
 #define VOXEL_H
 
 #include <graphics/texture_atlas.h>
+#include <graphics/vertex.h>
 #include <world/block_type.h>
 #include <cglm/cglm.h>
 
 typedef struct 
 {
   AtlasCoord atlas_coord;
+  BlockTextures block_textures;
   float rotation[3];
   BlockType block_type;
 } Voxel;
@@ -28,5 +30,8 @@ int voxel_init(Voxel* voxel, BlockType block_type);
 void voxel_render(Voxel* voxel);
 void voxel_render_culled(Voxel* voxel, VoxelNeighborCheck neighbor_check, void* context);
 void voxel_system_cleanup(void);
+
+void voxel_get_face_vertices(VoxelFace face, Vertex* out_vertices[6], AtlasCoord atlas_coord);
+const Vertex* voxel_get_face_base_vertices(VoxelFace face);
 
 #endif

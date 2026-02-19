@@ -13,7 +13,7 @@ int camera_init(Camera* camera, float x, float y, float z)
 
   camera->yaw = -90.0f;
   camera->pitch = 0.0f;
-  camera->speed = 5.0f;
+  camera->speed = 20.0f;
   camera->sensitivity = 0.1f;
   camera->last_x = 400.0f;
   camera->last_y = 300.0f;

@@ -16,6 +16,12 @@ void block_registry_init(void)
 
   block_data[BLOCK_TYPE_COBBLESTONE].type = BLOCK_TYPE_COBBLESTONE;
   block_data[BLOCK_TYPE_COBBLESTONE].name = "cobblestone";
+
+  block_data[BLOCK_TYPE_GRASS].type = BLOCK_TYPE_GRASS;
+  block_data[BLOCK_TYPE_GRASS].name = "grass";
+
+  block_data[BLOCK_TYPE_DIRT].type = BLOCK_TYPE_DIRT;
+  block_data[BLOCK_TYPE_DIRT].name = "dirt";
 }
 
 BlockData* block_registry_get(BlockType type)

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define GRID_WIDTH 32
-#define GRID_HEIGHT 32
+#define GRID_HEIGHT 64
 #define GRID_DEPTH 32
 
 static WorldBlock *blocks = NULL;
@@ -37,6 +37,16 @@ int world_grid_add_block(BlockType type, int x, int y, int z)
         
         blocks = new_ptr;
         block_capacity = new_capacity;
+        
+        // Rebuild grid pointers after reallocation since blocks array moved
+        memset(grid, 0, sizeof(grid));
+        for(int i = 0; i < block_count; i++) {
+          int bx = blocks[i].x;
+          int by = blocks[i].y;
+          int bz = blocks[i].z;
+          if(bx >= 0 && bx < GRID_WIDTH && by >= 0 && by < GRID_HEIGHT && bz >= 0 && bz < GRID_DEPTH)
+            grid[bx][by][bz] = &blocks[i];
+        }
     }
 
     blocks[block_count].type = type;

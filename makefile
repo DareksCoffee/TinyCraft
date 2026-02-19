@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -Wall -Wextra -O2 -Iinclude -Ivendor/cglm/include -Ivendor/stb
+CFLAGS := -Wall -Wextra -O2 -Iinclude -Ivendor/cglm/include -Ivendor/stb -Ivendor
 LDFLAGS := -lglfw -lGLEW -lGL -lm
 DEBUG_FLAGS := -g -O0 -DDEBUG
 

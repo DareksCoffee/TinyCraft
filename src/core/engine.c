@@ -131,6 +131,7 @@ void engine_run()
   }
 
   shader_delete(&basic_shader);
+  world_cleanup();
   win_close(&window);
 }
 
