@@ -9,6 +9,7 @@
 #include <graphics/vertex.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 static fnl_state noise_state;
 static int noise_initialized = 0;
@@ -28,28 +29,21 @@ void chunk_load(Chunk* chunk)
 {
   if(!chunk || !chunk->blocks)
     return;
-  
-  if(!noise_initialized)
-    init_noise();
+
+  int flat_height = 20;
+  int* blocks = chunk->blocks;
 
   for(int x = 0; x < CHUNK_XZ; x++) {
     for(int z = 0; z < CHUNK_XZ; z++) {
-      int world_x = chunk->x * CHUNK_XZ + x;
-      int world_z = chunk->z * CHUNK_XZ + z;
-      
-      float noise_val = fnlGetNoise2D(&noise_state, (float)world_x, (float)world_z);
-      int height = (int)((noise_val + 1.0f) * 32.0f);
-      
-      for(int y = 0; y < CHUNK_Y && y <= height; y++) {
+      for(int y = 0; y < CHUNK_Y && y <= flat_height; y++) {
         BlockType block_type = BLOCK_TYPE_DIRT;
-        if(y == height)
+        if(y == flat_height)
           block_type = BLOCK_TYPE_GRASS;
         else if(y < 10)
           block_type = BLOCK_TYPE_COBBLESTONE;
         
         int idx = x * CHUNK_Y * CHUNK_XZ + y * CHUNK_XZ + z;
-        chunk->blocks[idx] = block_type;
-        chunk_spatial_add_block(block_type, world_x, y, world_z);
+        blocks[idx] = block_type;
       }
     }
   }
@@ -75,29 +69,37 @@ int chunk_get_block(Chunk* chunk, int local_x, int local_y, int local_z)
   return chunk->blocks[idx];
 }
 
-static int is_face_visible(int bx, int by, int bz, int dx, int dy, int dz)
+static int is_block_air(int x, int y, int z, int base_x, int base_z, Chunk* chunk)
 {
-  WorldBlock* neighbor = chunk_spatial_get_block_at(bx + dx, by + dy, bz + dz);
+  int local_x = x - base_x;
+  int local_z = z - base_z;
+  
+  if(local_x >= 0 && local_x < CHUNK_XZ && local_z >= 0 && local_z < CHUNK_XZ &&
+     y >= 0 && y < CHUNK_Y) {
+    int idx = local_x * CHUNK_Y * CHUNK_XZ + y * CHUNK_XZ + local_z;
+    return chunk->blocks[idx] == BLOCK_TYPE_AIR;
+  }
+  
+  WorldBlock* neighbor = chunk_spatial_get_block_at(x, y, z);
   if(!neighbor || neighbor->type == BLOCK_TYPE_AIR)
     return 1;
   return 0;
 }
 
-static void add_face_vertices(Vertex** vertices, int* vert_count, 
-                              int bx, int by, int bz, VoxelFace face, AtlasCoord atlas_coord)
+static inline void add_face_vertices_fast(Vertex* __restrict verts, int* __restrict vert_count, 
+                              int bx, int by, int bz, const Vertex* __restrict base, 
+                              float u, float v, float u_size, float v_size)
 {
-  const Vertex* base = voxel_get_face_base_vertices(face);
-  if(!base)
-    return;
-    
+  int vc = *vert_count;
+  Vertex* v_ptr = verts + vc;
   for(int i = 0; i < 6; i++) {
-    (*vertices)[*vert_count].position[0] = base[i].position[0] + bx;
-    (*vertices)[*vert_count].position[1] = base[i].position[1] + by;
-    (*vertices)[*vert_count].position[2] = base[i].position[2] + bz;
-    (*vertices)[*vert_count].texcoord[0] = base[i].texcoord[0] * atlas_coord.u_size + atlas_coord.u;
-    (*vertices)[*vert_count].texcoord[1] = base[i].texcoord[1] * atlas_coord.v_size + atlas_coord.v;
-    (*vert_count)++;
+    v_ptr[i].position[0] = base[i].position[0] + bx;
+    v_ptr[i].position[1] = base[i].position[1] + by;
+    v_ptr[i].position[2] = base[i].position[2] + bz;
+    v_ptr[i].texcoord[0] = base[i].texcoord[0] * u_size + u;
+    v_ptr[i].texcoord[1] = base[i].texcoord[1] * v_size + v;
   }
+  *vert_count = vc + 6;
 }
 
 Chunk* chunk_create(int chunk_x, int chunk_z)
@@ -141,12 +143,22 @@ void chunk_rebuild_mesh(Chunk* chunk)
   int vert_count = 0;
   int base_x = chunk->x * CHUNK_XZ;
   int base_z = chunk->z * CHUNK_XZ;
-
-  for(int x = 0; x < CHUNK_XZ; x++) {
-    for(int y = 0; y < CHUNK_Y; y++) {
+  
+  Vertex* verts = chunk->vertices;
+  int* blocks = chunk->blocks;
+  
+  const Vertex* face_front = voxel_get_face_base_vertices(FACE_FRONT);
+  const Vertex* face_back = voxel_get_face_base_vertices(FACE_BACK);
+  const Vertex* face_left = voxel_get_face_base_vertices(FACE_LEFT);
+  const Vertex* face_right = voxel_get_face_base_vertices(FACE_RIGHT);
+  const Vertex* face_bottom = voxel_get_face_base_vertices(FACE_BOTTOM);
+  const Vertex* face_top = voxel_get_face_base_vertices(FACE_TOP);
+  
+  for(int y = 0; y < CHUNK_Y; y++) {
+    for(int x = 0; x < CHUNK_XZ; x++) {
       for(int z = 0; z < CHUNK_XZ; z++) {
         int idx = x * CHUNK_Y * CHUNK_XZ + y * CHUNK_XZ + z;
-        int block_type = chunk->blocks[idx];
+        int block_type = blocks[idx];
         if(block_type == BLOCK_TYPE_AIR)
           continue;
 
@@ -156,18 +168,24 @@ void chunk_rebuild_mesh(Chunk* chunk)
 
         BlockTextures block_tex = texture_registry_get_block_textures(block_type);
 
-        if(is_face_visible(world_x, world_y, world_z, 0, 0, -1))
-          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_FRONT, block_tex.front);
-        if(is_face_visible(world_x, world_y, world_z, 0, 0, 1))
-          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_BACK, block_tex.back);
-        if(is_face_visible(world_x, world_y, world_z, -1, 0, 0))
-          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_LEFT, block_tex.left);
-        if(is_face_visible(world_x, world_y, world_z, 1, 0, 0))
-          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_RIGHT, block_tex.right);
-        if(is_face_visible(world_x, world_y, world_z, 0, -1, 0))
-          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_BOTTOM, block_tex.bottom);
-        if(is_face_visible(world_x, world_y, world_z, 0, 1, 0))
-          add_face_vertices(&chunk->vertices, &vert_count, world_x, world_y, world_z, FACE_TOP, block_tex.top);
+        if(is_block_air(world_x, world_y, world_z - 1, base_x, base_z, chunk))
+          add_face_vertices_fast(verts, &vert_count, world_x, world_y, world_z, face_front, 
+                                block_tex.front.u, block_tex.front.v, block_tex.front.u_size, block_tex.front.v_size);
+        if(is_block_air(world_x, world_y, world_z + 1, base_x, base_z, chunk))
+          add_face_vertices_fast(verts, &vert_count, world_x, world_y, world_z, face_back, 
+                                block_tex.back.u, block_tex.back.v, block_tex.back.u_size, block_tex.back.v_size);
+        if(is_block_air(world_x - 1, world_y, world_z, base_x, base_z, chunk))
+          add_face_vertices_fast(verts, &vert_count, world_x, world_y, world_z, face_left, 
+                                block_tex.left.u, block_tex.left.v, block_tex.left.u_size, block_tex.left.v_size);
+        if(is_block_air(world_x + 1, world_y, world_z, base_x, base_z, chunk))
+          add_face_vertices_fast(verts, &vert_count, world_x, world_y, world_z, face_right, 
+                                block_tex.right.u, block_tex.right.v, block_tex.right.u_size, block_tex.right.v_size);
+        if(is_block_air(world_x, world_y - 1, world_z, base_x, base_z, chunk))
+          add_face_vertices_fast(verts, &vert_count, world_x, world_y, world_z, face_bottom, 
+                                block_tex.bottom.u, block_tex.bottom.v, block_tex.bottom.u_size, block_tex.bottom.v_size);
+        if(is_block_air(world_x, world_y + 1, world_z, base_x, base_z, chunk))
+          add_face_vertices_fast(verts, &vert_count, world_x, world_y, world_z, face_top, 
+                                block_tex.top.u, block_tex.top.v, block_tex.top.u_size, block_tex.top.v_size);
       }
     }
   }

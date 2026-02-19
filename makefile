@@ -1,6 +1,6 @@
 CC := gcc
-CFLAGS := -Wall -Wextra -O2 -Iinclude -Ivendor/cglm/include -Ivendor/stb -Ivendor
-LDFLAGS := -lglfw -lGLEW -lGL -lm
+CFLAGS := -Wall -Wextra -O3 -march=native -ffast-math -flto -Iinclude -Ivendor/cglm/include -Ivendor/stb -Ivendor
+LDFLAGS := -lglfw -lGLEW -lGL -lm -flto
 DEBUG_FLAGS := -g -O0 -DDEBUG
 
 # Directories

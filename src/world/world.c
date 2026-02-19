@@ -3,6 +3,7 @@
 #include <world/chunk_spatial.h>
 #include <world/neighbor_query.h>
 #include <world/chunk.h>
+#include <world/chunk_loader.h>
 #include <graphics/voxel.h>
 #include <graphics/mesh.h>
 #include <graphics/texture.h>
@@ -69,33 +70,22 @@ void world_unload_far_chunks(int player_chunk_x, int player_chunk_z)
 
 void world_load_new_chunks(int player_chunk_x, int player_chunk_z)
 {
-  for(int cx = player_chunk_x - RENDER_DISTANCE; cx <= player_chunk_x + RENDER_DISTANCE; cx++) {
-    for(int cz = player_chunk_z - RENDER_DISTANCE; cz <= player_chunk_z + RENDER_DISTANCE; cz++) {
-      if(!world_is_chunk_in_range(cx, cz, player_chunk_x, player_chunk_z))
-        continue;
-      
-      int idx = world_find_chunk(cx, cz);
-      if(idx == -1) {
-        int empty_slot = world_find_empty_slot();
-        if(empty_slot == -1) {
-          continue;
-        }
-        
-        chunks[empty_slot] = chunk_create(cx, cz);
-        if(chunks[empty_slot]) {
-          chunk_load(chunks[empty_slot]);
-          if(queue_count < MAX_CHUNKS) {
-            chunk_rebuild_queue[queue_count++] = empty_slot;
-          }
-          if(empty_slot >= chunk_count) {
-            chunk_count = empty_slot + 1;
-          }
-        }
-      } else if(!chunks[idx]->is_loaded) {
-        chunk_load(chunks[idx]);
-        if(queue_count < MAX_CHUNKS) {
-          chunk_rebuild_queue[queue_count++] = idx;
-        }
+  int load_count = chunk_loader_queue_preload(player_chunk_x, player_chunk_z);
+  ChunkCoord* preload_queue = chunk_loader_get_preload_queue();
+  
+  for(int i = 0; i < load_count; i++) {
+    int empty_slot = world_find_empty_slot();
+    if(empty_slot == -1)
+      break;
+    
+    chunks[empty_slot] = chunk_create(preload_queue[i].cx, preload_queue[i].cz);
+    if(chunks[empty_slot]) {
+      chunk_load(chunks[empty_slot]);
+      if(queue_count < MAX_CHUNKS) {
+        chunk_rebuild_queue[queue_count++] = empty_slot;
+      }
+      if(empty_slot >= chunk_count) {
+        chunk_count = empty_slot + 1;
       }
     }
   }
@@ -235,7 +225,21 @@ int world_check_collision(AABB* aabb)
   for(int x = min_x; x < max_x; x++) {
     for(int y = min_y; y < max_y; y++) {
       for(int z = min_z; z < max_z; z++) {
-        if(world_get_block_at(x, y, z) != BLOCK_TYPE_AIR) {
+        int chunk_x = (int)floorf((float)x / CHUNK_XZ);
+        int chunk_z = (int)floorf((float)z / CHUNK_XZ);
+        int local_x = x - chunk_x * CHUNK_XZ;
+        int local_z = z - chunk_z * CHUNK_XZ;
+        
+        int chunk_idx = world_find_chunk(chunk_x, chunk_z);
+        if(chunk_idx == -1 || !chunks[chunk_idx] || !chunks[chunk_idx]->is_loaded)
+          continue;
+        
+        Chunk* chunk = chunks[chunk_idx];
+        if(local_x < 0 || local_x >= CHUNK_XZ || y < 0 || y >= CHUNK_Y || local_z < 0 || local_z >= CHUNK_XZ)
+          continue;
+        
+        int block_idx = local_x * CHUNK_Y * CHUNK_XZ + y * CHUNK_XZ + local_z;
+        if(chunk->blocks[block_idx] != BLOCK_TYPE_AIR) {
           AABB block_aabb = aabb_create((vec3){x + 0.5f, y + 0.5f, z + 0.5f}, 1.0f, 1.0f, 1.0f);
           if(aabb_intersects(aabb, &block_aabb))
             return 1;

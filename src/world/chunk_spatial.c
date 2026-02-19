@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define HASH_TABLE_SIZE 65536
+#define HASH_TABLE_SIZE 262144
 
 typedef struct BlockNode {
   WorldBlock block;
@@ -13,7 +13,7 @@ typedef struct BlockNode {
 static BlockNode* hash_table[HASH_TABLE_SIZE];
 static int block_count = 0;
 
-static unsigned int hash_coord(int x, int y, int z)
+static inline unsigned int hash_coord(int x, int y, int z)
 {
   unsigned int h = 2166136261u;
   h ^= (unsigned int)x;
@@ -22,7 +22,7 @@ static unsigned int hash_coord(int x, int y, int z)
   h *= 16777619u;
   h ^= (unsigned int)z;
   h *= 16777619u;
-  return h % HASH_TABLE_SIZE;
+  return h & (HASH_TABLE_SIZE - 1);
 }
 
 int chunk_spatial_add_block(BlockType type, int x, int y, int z)
@@ -46,18 +46,23 @@ int chunk_spatial_add_block(BlockType type, int x, int y, int z)
     return 1;
 }
 
-WorldBlock* chunk_spatial_get_block_at(int x, int y, int z)
+static inline WorldBlock* chunk_spatial_get_block_at_internal(int x, int y, int z)
 {
   unsigned int hash = hash_coord(x, y, z);
-  BlockNode* node = hash_table[hash];
+  register BlockNode* node = hash_table[hash];
   
   while(node) {
-    if(node->block.x == x && node->block.y == y && node->block.z == z)
+    if(__builtin_expect(node->block.x == x && node->block.y == y && node->block.z == z, 1))
       return &node->block;
     node = node->next;
   }
   
   return NULL;
+}
+
+WorldBlock* chunk_spatial_get_block_at(int x, int y, int z)
+{
+  return chunk_spatial_get_block_at_internal(x, y, z);
 }
 
 int chunk_spatial_get_block_count(void)
