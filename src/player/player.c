@@ -1,6 +1,7 @@
 #include <player/player.h>
 #include <world/world.h>
 #include <core/input.h>
+#include <core/window.h>
 #include <GLFW/glfw3.h>
 #include <math.h>
 
@@ -24,12 +25,13 @@ int player_init(Player* player, vec3 spawn_pos)
     return PLAYER_OK;
 }
 
-void player_update(Player* player, void* window, float delta_time)
+void player_update(Player* player, void* window_ptr, float delta_time)
 {
-    if (!player || !window)
+    if (!player || !window_ptr)
         return;
     
-    GLFWwindow* glfw_window = (GLFWwindow*)window;
+    Window* window = (Window*)window_ptr;
+    GLFWwindow* glfw_window = window->window;
     
     vec3 move = {0.0f, 0.0f, 0.0f};
     
@@ -60,8 +62,20 @@ void player_update(Player* player, void* window, float delta_time)
         glm_normalize(move);
     }
     float move_speed = MOVE_SPEED * delta_time;
+    
     player->position[0] += move[0] * move_speed;
+    aabb_update(&player->aabb, player->position);
+    if (world_check_collision(&player->aabb)) {
+        player->position[0] -= move[0] * move_speed;
+        aabb_update(&player->aabb, player->position);
+    }
+    
     player->position[2] += move[2] * move_speed;
+    aabb_update(&player->aabb, player->position);
+    if (world_check_collision(&player->aabb)) {
+        player->position[2] -= move[2] * move_speed;
+        aabb_update(&player->aabb, player->position);
+    }
     
     player->velocity[1] += GRAVITY * delta_time;
     

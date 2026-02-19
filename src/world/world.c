@@ -10,9 +10,11 @@
 #include <graphics/shader.h>
 #include <graphics/frustum.h>
 #include <player/player.h>
+#include <core/window.h>
 #include <GLFW/glfw3.h>
 #include <cglm/cglm.h>
 #include <stdlib.h>
+#include <math.h>
 
 static Chunk* chunks[9];
 static int chunk_count = 0;
@@ -85,9 +87,12 @@ void world_cleanup(void)
 
 void world_mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
-  Player* plyr = (Player*)glfwGetWindowUserPointer(window);
-  if(plyr)
+  Window* win = (Window*)glfwGetWindowUserPointer(window);
+  if(win && win->user_data && win->mouse_captured)
+  {
+    Player* plyr = (Player*)win->user_data;
     camera_mouse_callback(&plyr->camera, xpos, ypos);
+  }
 }
 
 int world_get_block_at(int x, int y, int z)
@@ -98,16 +103,16 @@ int world_get_block_at(int x, int y, int z)
 
 int world_check_collision(AABB* aabb)
 {
-  int min_x = (int)aabb->min[0];
-  int max_x = (int)aabb->max[0] + 1;
-  int min_y = (int)aabb->min[1];
-  int max_y = (int)aabb->max[1] + 1;
-  int min_z = (int)aabb->min[2];
-  int max_z = (int)aabb->max[2] + 1;
+  int min_x = (int)floorf(aabb->min[0]);
+  int max_x = (int)ceilf(aabb->max[0]);
+  int min_y = (int)floorf(aabb->min[1]);
+  int max_y = (int)ceilf(aabb->max[1]);
+  int min_z = (int)floorf(aabb->min[2]);
+  int max_z = (int)ceilf(aabb->max[2]);
 
-  for(int x = min_x; x <= max_x; x++) {
-    for(int y = min_y; y <= max_y; y++) {
-      for(int z = min_z; z <= max_z; z++) {
+  for(int x = min_x; x < max_x; x++) {
+    for(int y = min_y; y < max_y; y++) {
+      for(int z = min_z; z < max_z; z++) {
         if(world_get_block_at(x, y, z) != BLOCK_TYPE_AIR) {
           AABB block_aabb = aabb_create((vec3){x + 0.5f, y + 0.5f, z + 0.5f}, 1.0f, 1.0f, 1.0f);
           if(aabb_intersects(aabb, &block_aabb))

@@ -13,6 +13,7 @@ static Shader basic_shader;
 static double last_time;
 static float total_time;
 static Player player;
+static mat4 projection;
 
 int engine_init_components()
 {
@@ -44,14 +45,16 @@ int engine_init_components()
   }
   glfwSwapInterval(1);
   
-  /* Set up mouse input */
-  glfwSetInputMode(window.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-  if(glfwRawMouseMotionSupported())
-    glfwSetInputMode(window.window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
   return ENGINE_OK;
+}
+
+static void on_window_resize(int width, int height)
+{
+  float aspect = (float)width / (float)height;
+  glm_perspective(glm_rad(45.0f), aspect, 0.1f, 100.0f, projection);
 }
 
 int engine_init()
@@ -84,11 +87,13 @@ int engine_init()
 
 void engine_run()
 {
-  mat4 projection, view, model;
+  mat4 view, model;
   glm_perspective(glm_rad(45.0f), 800.0f / 600.0f, 0.1f, 100.0f, projection);
   
-  glfwSetWindowUserPointer(window.window, &player);
+  win_set_user_data(&window, &player);
   glfwSetCursorPosCallback(window.window, world_mouse_callback);
+  win_set_resize_callback(&window, on_window_resize);
+  win_capture_mouse(&window);
 
   while(!window.should_close)
   {
@@ -97,7 +102,13 @@ void engine_run()
     last_time = current_time;
     total_time += delta_time;
 
-    player_update(&player, window.window, delta_time);
+    if (input_is_key_pressed(window.window, GLFW_KEY_ESCAPE))
+      win_release_mouse(&window);
+    
+    if (glfwGetMouseButton(window.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !window.mouse_captured)
+      win_capture_mouse(&window);
+
+    player_update(&player, &window, delta_time);
     player_get_view_matrix(&player, view);
 
     world_update(delta_time);

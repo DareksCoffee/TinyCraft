@@ -14,12 +14,10 @@ static TextureAtlas* current_atlas = NULL;
 static int build_entries_from_directory(TextureEntry* entries, int max_count)
 {
   char texture_dir[PATH_MAX];
-  if (!path_get_resource_path(texture_dir, sizeof(texture_dir), "../.tinycraft/textures/block")) {
-    printf("Failed to get resource path for .tinycraft/textures/block\n");
+  if (!path_get_resource_path(texture_dir, sizeof(texture_dir), ".tinycraft/textures/blocks")) {
+    printf("Failed to get resource path for .tinycraft/textures/blocks\n");
     return 0;
   }
-
-  printf("Loading textures from: %s\n", texture_dir);
 
   DIR* dir = opendir(texture_dir);
   if (!dir) {
@@ -118,7 +116,6 @@ void texture_atlas_init(TextureAtlas* atlas)
   int entry_count = build_entries_from_directory(entries, MAX_ENTRIES);
 
   if (entry_count == 0) {
-    printf("No textures found in .tinycraft/textures/block\n");
     return;
   }
 
@@ -130,7 +127,6 @@ void texture_atlas_init(TextureAtlas* atlas)
 
   if(!atlas->texture.id)
   {
-    printf("Failed to load texture atlas\n");
     return;
   }
 
