@@ -9,7 +9,26 @@
 
 static TextureAtlas* current_atlas = NULL;
 
-#define MAX_ENTRIES 512
+static BlockNameMapping name_map[] = {
+  {"stone", BLOCK_TYPE_STONE},
+  {"cobblestone", BLOCK_TYPE_COBBLESTONE},
+  {"dirt", BLOCK_TYPE_DIRT},
+  {"grass_block_top", BLOCK_TYPE_GRASS},
+  {"grass_block_side", BLOCK_TYPE_GRASS},
+  {"sand", BLOCK_TYPE_SAND},
+  {"bedrock", BLOCK_TYPE_BEDROCK},
+  {NULL, BLOCK_TYPE_AIR}
+};
+
+static BlockType lookup_block_type(const char* filename)
+{
+  for (int i = 0; name_map[i].name != NULL; i++) {
+    if (strcmp(filename, name_map[i].name) == 0) {
+      return name_map[i].type;
+    }
+  }
+  return BLOCK_TYPE_AIR;
+}
 
 static int build_entries_from_directory(TextureEntry* entries, int max_count)
 {
@@ -41,17 +60,7 @@ static int build_entries_from_directory(TextureEntry* entries, int max_count)
     char full_path[PATH_MAX];
     snprintf(full_path, sizeof(full_path), "%s/%s.png", texture_dir, filename);
 
-    BlockType block_type = BLOCK_TYPE_AIR;
-    if (strcmp(filename, "cobblestone") == 0) {
-      block_type = BLOCK_TYPE_COBBLESTONE;
-    } else if (strcmp(filename, "dirt") == 0) {
-      block_type = BLOCK_TYPE_DIRT;
-    } else if (strcmp(filename, "grass_block_top") == 0) {
-      block_type = BLOCK_TYPE_GRASS;
-    } else if (strcmp(filename, "grass_block_side") == 0) {
-      block_type = BLOCK_TYPE_GRASS;
-    }
-
+    BlockType block_type = lookup_block_type(filename);
     if (block_type == BLOCK_TYPE_AIR) {
       free(filename);
       continue;

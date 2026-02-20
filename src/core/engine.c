@@ -135,6 +135,12 @@ void engine_run()
 
     world_render(&fog_shader, view, projection);
 
+    shader_use(&basic_shader);
+    shader_set_mat4(&basic_shader, "view", view);
+    shader_set_mat4(&basic_shader, "projection", projection);
+    shader_set_int(&basic_shader, "texture_sampler", 0);
+    player_render_arm(&player, &basic_shader, view, projection);
+
     win_update(&window);
   }
 

@@ -1,6 +1,8 @@
 #ifndef TEXTURE_ATLAS_H
 #define TEXTURE_ATLAS_H
 
+#define MAX_ENTRIES       512
+
 #include <graphics/texture.h>
 #include <world/block_type.h>
 #include <world/registry.h>
@@ -22,6 +24,11 @@ typedef struct
   AtlasCoord top;
   AtlasCoord bottom;
 } BlockTextures;
+
+typedef struct {
+  char* name;
+  BlockType type;
+} BlockNameMapping;
 
 typedef struct
 {

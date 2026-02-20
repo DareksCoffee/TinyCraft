@@ -11,6 +11,7 @@
 #include <graphics/shader.h>
 #include <graphics/frustum.h>
 #include <player/player.h>
+#include <player/arm.h>
 #include <core/window.h>
 #include <GLFW/glfw3.h>
 #include <cglm/cglm.h>
@@ -195,6 +196,7 @@ void world_cleanup(void)
   }
   
   chunk_count = 0;
+  arm_cleanup();
 }
 
 void world_mouse_callback(GLFWwindow* window, double xpos, double ypos)

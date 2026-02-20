@@ -3,6 +3,7 @@
 
 #include <player/aabb.h>
 #include <graphics/camera.h>
+#include <graphics/shader.h>
 #include <cglm/cglm.h>
 
 #define PLAYER_WIDTH  0.8f
@@ -22,10 +23,15 @@ typedef struct {
     Camera camera;
     AABB aabb;
     int on_ground;
+    float head_bob_time;
+    float last_move_length;
+    float bob_decay;
+    float bob_amplitude;
 } Player;
 
 int player_init(Player* player, vec3 spawn_pos);
 void player_update(Player* player, void* window_ptr, float delta_time);
 void player_get_view_matrix(Player* player, mat4 view);
+void player_render_arm(Player* player, Shader* shader, mat4 view, mat4 projection);
 
 #endif
